@@ -1,0 +1,60 @@
+{
+  "package": {
+    "productName": "lucky",
+    "version": "6.6.6"
+  },
+  "build": {
+    "distDir": "../../dist",
+    "devPath": "http://localhost:3000/",
+    "beforeDevCommand": "pnpm run web:dev",
+    "beforeBuildCommand": "pnpm run web:build"
+  },
+  "tauri": {
+    "systemTray": {
+      "iconPath": "icons/win-tray-icon.png",
+      "iconAsTemplate": true
+    },
+    "bundle": {
+      "active": true,
+      "targets": ["app", "dmg"],
+      "identifier": "moe.QDwbd.lucky",
+      "icon": [
+        "icons/icon.icns",
+        "icons/icon.png"
+      ],
+      "resources": ["resources"],
+      "externalBin": ["sidecar/mihomo", "sidecar/mihomo-alpha"],
+      "copyright": "© 2024 lucky All Rights Reserved",
+      "category": "DeveloperTool",
+      "shortDescription": "lucky! (∠・ω< )⌒☆",
+      "longDescription": "lucky! (∠・ω< )⌒☆"
+    },
+    "allowlist": {
+      "protocol": {
+        "asset": true,
+        "assetScope": ["**"]
+      },
+      "shell": {
+        "all": true
+      },
+      "window": {
+        "all": true
+      },
+      "process": {
+        "all": true
+      },
+      "globalShortcut": {
+        "all": true
+      },
+      "notification": {
+        "all": true
+      },
+      "os": {
+        "all": true
+      }
+    },
+    "security": {
+      "csp": "script-src 'unsafe-eval' 'self'; default-src blob: data: filesystem: ws: wss: http: https: tauri: asset: 'unsafe-eval' 'unsafe-inline' 'self'; img-src data: blob: asset: http://asset.localhost https://asset.localhost 'self';"
+    }
+  }
+}

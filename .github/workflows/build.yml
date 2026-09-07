@@ -1,0 +1,194 @@
+name: Build Project
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+  schedule:
+    # Check MetaCubeX/mihomo stable version three times a day (UTC).
+    - cron: "0 0,8,16 * * *"
+jobs:
+  build:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    outputs:
+      version: ${{ steps.get_version.outputs.version }}
+      stable_changed: ${{ steps.monitor_mihomo.outputs.stable_changed }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install pnpm
+        run: npm install -g pnpm@9
+      - name: Install dependencies
+        run: pnpm install
+      - name: Check dependencies
+        run: pnpm check
+      - name: Monitor mihomo stable version
+        id: monitor_mihomo
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $before_stable = node -e "console.log(require('./manifest/version.json').latest.mihomo)"
+          $before_alpha = node -e "console.log(require('./manifest/version.json').latest.mihomo_alpha)"
+          pnpm generate:manifest:latest-version
+          $after_stable = node -e "console.log(require('./manifest/version.json').latest.mihomo)"
+          $after_alpha = node -e "console.log(require('./manifest/version.json').latest.mihomo_alpha)"
+          Write-Host "Stable Before:"
+          Write-Host $before_stable
+          Write-Host "Stable After:"
+          Write-Host $after_stable
+          Write-Host "Alpha Before:"
+          Write-Host $before_alpha
+          Write-Host "Alpha After:"
+          Write-Host $after_alpha
+          if ($before_stable -ne $after_stable) {
+            "stable_changed=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+            Write-Host "mihomo stable version changed."
+          } else {
+            "stable_changed=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+            Write-Host "mihomo stable version unchanged."
+          }
+          if ($before_alpha -ne $after_alpha) {
+            "alpha_changed=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+            Write-Host "mihomo alpha version changed."
+          } else {
+            "alpha_changed=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+            Write-Host "mihomo alpha version unchanged."
+          }
+          if (($before_stable -ne $after_stable) -or ($before_alpha -ne $after_alpha)) {
+            "changed=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+            Write-Host "mihomo version file changed."
+            git diff -- manifest/version.json
+          } else {
+            "changed=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+            Write-Host "mihomo versions unchanged."
+          }
+      - name: Commit and push mihomo version update
+        if: steps.monitor_mihomo.outputs.changed == 'true'
+        shell: pwsh
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add manifest/version.json
+          git commit -m "chore: update mihomo versions [skip ci]"
+          git push
+      - name: Build the project
+        if: github.event_name != 'schedule' || steps.monitor_mihomo.outputs.stable_changed == 'true'
+        shell: pwsh
+        run: pnpm run build
+        env:
+          TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+      - name: Get version from package.json
+        if: github.event_name != 'schedule' || steps.monitor_mihomo.outputs.stable_changed == 'true'
+        id: get_version
+        shell: pwsh
+        run: |
+          $version = node -p "require('./package.json').version"
+          "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          "VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+      - name: Delete previous release and tag
+        if: github.event_name != 'schedule' || steps.monitor_mihomo.outputs.stable_changed == 'true'
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $tag = "v$env:VERSION"
+          gh release delete $tag --cleanup-tag --yes 2>$null
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "No existing release/tag $tag to delete."
+            exit 0
+          }
+          Write-Host "Deleted existing release and tag $tag."
+      - name: Create GitHub Release and upload assets
+        if: github.event_name != 'schedule' || steps.monitor_mihomo.outputs.stable_changed == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ env.VERSION }}
+          name: Release v${{ env.VERSION }}
+          body: |
+            📦 This is a new release of lucky.
+            Version: v${{ env.VERSION }}
+          files: |
+            backend/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe
+            backend/target/x86_64-pc-windows-msvc/release/bundle/msi/*.msi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-macos:
+    # Waits for the Windows job so that it attaches its assets to the very
+    # release the Windows job just created (same v<version> tag).
+    # Runs once on a free Intel runner and cross-compiles BOTH Intel (x64) and
+    # Apple Silicon (arm64) .dmg files, uploading both to the release.
+    runs-on: macos-14
+    needs: build
+    if: github.event_name != 'schedule' || needs.build.outputs.stable_changed == 'true'
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install pnpm
+        run: npm install -g pnpm@9
+      - name: Install dependencies
+        run: pnpm install
+      - name: Download x64 darwin sidecars
+        shell: bash
+        run: |
+          pnpm exec tsx scripts/check.ts --arch x64 --sidecar-host x86_64-apple-darwin
+      - name: Download arm64 darwin sidecars
+        shell: bash
+        run: |
+          pnpm exec tsx scripts/check.ts --arch arm64 --sidecar-host aarch64-apple-darwin
+      - name: Add Rust target toolchains
+        shell: bash
+        run: |
+          rustup target add x86_64-apple-darwin
+          rustup target add aarch64-apple-darwin
+      - name: Generate macOS .icns from icon.png
+        shell: bash
+        run: |
+          set -euo pipefail
+          ICON_PNG="backend/tauri/icons/icon.png"
+          ICONSET="$(mktemp -d)/icon.iconset"
+          OUT_ICNS="backend/tauri/icons/icon.icns"
+          mkdir -p "$ICONSET"
+          for size in 16 32 128 256 512; do
+            double=$((size * 2))
+            sips -z "$size" "$size" "$ICON_PNG" --out "$ICONSET/icon_${size}x${size}.png" >/dev/null
+            sips -z "$double" "$double" "$ICON_PNG" --out "$ICONSET/icon_${size}x${size}@2x.png" >/dev/null
+          done
+          iconutil -c icns "$ICONSET" -o "$OUT_ICNS"
+          ls -l "$OUT_ICNS"
+      - name: Build macOS application (Intel x64)
+        env:
+          MACOS_TARGET: x86_64-apple-darwin
+        run: pnpm run build:macos
+      - name: Build macOS application (Apple Silicon arm64)
+        env:
+          MACOS_TARGET: aarch64-apple-darwin
+        run: pnpm run build:macos
+      - name: Upload macOS assets to release
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ needs.build.outputs.version }}"
+          echo "Uploading macOS assets to release v$VERSION"
+          gh release upload "v$VERSION" \
+            backend/target/macos-release/*.dmg \
+            --clobber
+

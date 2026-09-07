@@ -1,0 +1,289 @@
+.layout {
+  position: relative;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+  background: transparent;
+  color: var(--text-primary);
+
+  /* global custom background image layer */
+  &__bg {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    background-image: var(--background-image);
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    pointer-events: none;
+  }
+
+  /* colorful glow overlay for a nicer glassmorphism feel */
+  &__overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    background:
+      radial-gradient(circle at 12% 0%, var(--layout-accent), transparent 38%),
+      radial-gradient(circle at 88% 100%, var(--layout-glow), transparent 42%);
+    pointer-events: none;
+  }
+
+  /* unified top bar (sidebar + content are merged) */
+  &__bar {
+    position: relative;
+    z-index: 4;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    height: 60px;
+    /* never let the top bar be squeezed by tall page content */
+    flex: 0 0 auto;
+    padding: 0 12px 0 16px;
+    margin: 0;
+    background: transparent;
+    backdrop-filter: none;
+    user-select: none;
+    overflow: hidden;
+  }
+
+  /* main content panel */
+  &__main {
+    position: relative;
+    z-index: 2;
+    box-sizing: border-box;
+    display: flex;
+    flex: 1 1 0;
+    flex-direction: column;
+    width: 100%;
+    min-height: 0;
+    margin: 0;
+    /* fully transparent so the page cards show the background image directly */
+    background: transparent;
+    overflow: hidden;
+
+    .the-content {
+      flex: 1 1 auto;
+      width: 100%;
+      min-height: 0;
+    }
+  }
+}
+
+/* brand / logo */
+.bar__brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+  padding-right: 4px;
+
+  .bar__logo {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+
+    img {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      pointer-events: none;
+      user-select: none;
+    }
+  }
+
+  .the-newbtn {
+    transform: scale(0.85);
+  }
+}
+
+/* nav menu */
+.bar__nav {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+
+  .nav-item {
+    flex: 1 1 0;
+    min-width: 0;
+    width: auto;
+
+    .MuiListItemButton-root {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      min-width: 0;
+      padding: 8px 6px;
+      border-radius: 0;
+      color: var(--text-secondary);
+      transition: all 0.2s ease;
+
+      .nav-item__icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex: 0 0 auto;
+        font-size: 18px;
+        line-height: 1;
+      }
+
+      .nav-item__label {
+        flex: 0 1 auto;
+        min-width: 0;
+        font-size: 13px;
+        font-weight: 500;
+        line-height: 1;
+        white-space: nowrap;
+        overflow: hidden;
+        /* no ellipsis: when the label cannot fit, it is hidden and the
+           nav switches to icons only (see .bar__nav.nav-crowded) */
+      }
+
+      &:hover {
+        background: color-mix(in srgb, var(--primary-main) 12%, transparent);
+        color: var(--text-primary);
+      }
+
+      &.Mui-selected,
+      &.Mui-selected:hover {
+        background: color-mix(in srgb, var(--primary-main) 22%, transparent);
+        color: var(--primary-main);
+        box-shadow: 0 4px 14px color-mix(in srgb, var(--primary-main) 28%, transparent);
+      }
+    }
+  }
+}
+
+/* when the nav cannot fit every label, switch to icons only */
+.bar__nav.nav-crowded .nav-item__label {
+  display: none;
+}
+
+/* right side of the top bar */
+.bar__right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  padding-left: 6px;
+  border-left: 1px solid var(--border-color);
+
+  .the-bar {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+  }
+}
+
+/* compact traffic widget */
+.traffic-pill {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 12px;
+  background: rgb(255 255 255 / 16%);
+  border: 1px solid var(--border-color);
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: rgb(255 255 255 / 26%);
+  }
+
+  .traffic__graph {
+    width: 84px;
+    height: 26px;
+  }
+
+  .traffic__text {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    font-size: 11px;
+    line-height: 1.1;
+
+    span {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      white-space: nowrap;
+      color: var(--text-secondary);
+
+      b {
+        font-weight: 600;
+        color: var(--text-primary);
+      }
+
+      svg {
+        font-size: 13px;
+      }
+    }
+  }
+}
+
+/* give the nav more room on medium windows */
+@media (max-width: 1300px) {
+  .traffic-pill .traffic__graph {
+    display: none;
+  }
+}
+
+/* hide the whole traffic pill on narrow windows */
+@media (max-width: 1100px) {
+  .traffic-pill {
+    display: none;
+  }
+}
+
+/* shrink nav items on narrow windows so everything stays visible */
+@media (max-width: 900px) {
+  .bar__nav .MuiListItemButton-root {
+    gap: 4px;
+    padding: 6px 4px;
+  }
+
+  .bar__nav .nav-item__icon {
+    font-size: 16px;
+  }
+
+  .bar__nav .nav-item__label {
+    font-size: 12px;
+  }
+}
+
+/* icons only on very narrow windows */
+@media (max-width: 680px) {
+  .bar__nav .nav-item__label {
+    display: none;
+  }
+}
+
+.linux,
+.windows,
+.unknown {
+  &.layout {
+    .layout__bar {
+      padding-right: 8px;
+    }
+  }
+}
+
+.macos {
+  &.layout {
+    .layout__bar {
+      padding-left: 18px;
+    }
+  }
+}
