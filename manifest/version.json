@@ -2,7 +2,7 @@
   "manifest_version": 1,
   "latest": {
     "mihomo": "v1.19.34",
-    "mihomo_alpha": "alpha-fc3bd70"
+    "mihomo_alpha": "alpha-c7af25c"
   },
   "arch_template": {
     "mihomo": {
@@ -16,5 +16,5 @@
       "darwin-arm64": "mihomo-darwin-arm64-{}.gz"
     }
   },
-  "updated_at": "2026-11-24T07:32:59.398Z"
+  "updated_at": "2026-11-24T19:12:51.998Z"
 }
